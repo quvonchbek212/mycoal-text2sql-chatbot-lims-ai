@@ -1,0 +1,14 @@
+# Image'ga kerak bo'lmaganlar (hajm va maxfiylik uchun)
+.git
+.gitlab-ci.yml
+venv/
+.venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.codex_run/
+report.xml
+lims_chatbot/data/
+lims_chatbot/tests/
+Dockerfile
+.dockerignore

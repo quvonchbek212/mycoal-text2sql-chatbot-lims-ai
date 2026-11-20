@@ -1,0 +1,648 @@
+{
+ "generated_at": "2026-11-09",
+ "source": "test-mycoal-metadata",
+ "tables": {
+  "ash_results": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [
+    {
+     "column": "laboratory_id",
+     "ref_table": "laboratory_results",
+     "ref_column": "id"
+    }
+   ],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "notnull": true
+    },
+    {
+     "name": "analytical_ash_content",
+     "type": "numeric(10,2)"
+    },
+    {
+     "name": "final_result",
+     "type": "numeric(10,2)"
+    },
+    {
+     "name": "laboratory_id",
+     "type": "bigint",
+     "notnull": true
+    }
+   ]
+  },
+  "calculation_acts": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "act_number",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "coal_brand",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "total_wagons",
+     "type": "integer"
+    },
+    {
+     "name": "total_weight",
+     "type": "double precision"
+    },
+    {
+     "name": "wagon_received_date",
+     "type": "timestamp(6) without time zone"
+    }
+   ]
+  },
+  "coal_standards": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "notnull": true
+    },
+    {
+     "name": "coal_brand",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "maxAshContent",
+     "type": "double precision"
+    },
+    {
+     "name": "maxMoisture",
+     "type": "double precision"
+    },
+    {
+     "name": "minAshContent",
+     "type": "double precision"
+    },
+    {
+     "name": "minMoisture",
+     "type": "double precision"
+    }
+   ]
+  },
+  "daily_radiations": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "entry_date",
+     "type": "date",
+     "notnull": true
+    },
+    {
+     "name": "radiation_level",
+     "type": "double precision"
+    },
+    {
+     "name": "radiation_number",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "site_type",
+     "type": "character varying(255)",
+     "allowed": [
+      "RAZREZ",
+      "APARTAK",
+      "SHAXTA"
+     ]
+    }
+   ]
+  },
+  "lab": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "archived_at",
+     "type": "timestamp(6) with time zone"
+    },
+    {
+     "name": "code",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "is_active",
+     "type": "boolean",
+     "notnull": true
+    },
+    {
+     "name": "lab_type",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "name",
+     "type": "character varying(255)",
+     "notnull": true
+    }
+   ]
+  },
+  "laboratory_results": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [
+    {
+     "column": "calculation_act_id",
+     "ref_table": "calculation_acts",
+     "ref_column": "id"
+    },
+    {
+     "column": "truck_calculation_act_id",
+     "ref_table": "truck_calculation_acts",
+     "ref_column": "id"
+    },
+    {
+     "column": "uchastka_id",
+     "ref_table": "uchastnik",
+     "ref_column": "id"
+    }
+   ],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "notnull": true
+    },
+    {
+     "name": "ash_content",
+     "type": "double precision"
+    },
+    {
+     "name": "moisture_content",
+     "type": "double precision"
+    },
+    {
+     "name": "passed_standard",
+     "type": "boolean"
+    },
+    {
+     "name": "quality_reason",
+     "type": "text"
+    },
+    {
+     "name": "quality_status",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "sequence_number",
+     "type": "bigint",
+     "notnull": true
+    },
+    {
+     "name": "test_date_time",
+     "type": "timestamp(6) without time zone"
+    },
+    {
+     "name": "workflow_type",
+     "type": "character varying(255)",
+     "notnull": true,
+     "allowed": [
+      "CONTROL_ACT",
+      "CALCULATION",
+      "TRUCK_CALCULATION",
+      "GORNAYA_MASSA"
+     ]
+    },
+    {
+     "name": "calculation_act_id",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "measurement_id",
+     "type": "bigint"
+    },
+    {
+     "name": "truck_calculation_act_id",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "uchastka_id",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "gornaya_massa_act_id",
+     "type": "character varying(255)"
+    }
+   ]
+  },
+  "tnb_act": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "act_date",
+     "type": "date",
+     "notnull": true
+    },
+    {
+     "name": "act_no",
+     "type": "integer",
+     "notnull": true
+    },
+    {
+     "name": "sample_id",
+     "type": "character varying(255)",
+     "notnull": true
+    }
+   ]
+  },
+  "tnb_analysis": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [
+    {
+     "column": "certificate_id",
+     "ref_table": "tnb_certificate",
+     "ref_column": "id"
+    },
+    {
+     "column": "party_id",
+     "ref_table": "tnb_party",
+     "ref_column": "id"
+    }
+   ],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "analysis_date",
+     "type": "date",
+     "notnull": true
+    },
+    {
+     "name": "analyst_full_name",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "archived_at",
+     "type": "timestamp(6) with time zone"
+    },
+    {
+     "name": "inputs_json",
+     "type": "text"
+    },
+    {
+     "name": "sections_json",
+     "type": "text"
+    },
+    {
+     "name": "status",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "certificate_id",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "party_id",
+     "type": "character varying(255)",
+     "notnull": true
+    }
+   ]
+  },
+  "tnb_certificate": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "certificate_no",
+     "type": "integer",
+     "notnull": true
+    },
+    {
+     "name": "issue_date",
+     "type": "date",
+     "notnull": true
+    },
+    {
+     "name": "net_weight_tons",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "source_analysis_id",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "source_party_id",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "type",
+     "type": "character varying(255)",
+     "notnull": true,
+     "allowed": [
+      "LOCAL",
+      "EXPORT"
+     ]
+    }
+   ]
+  },
+  "tnb_party": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [
+    {
+     "column": "act_id",
+     "ref_table": "tnb_act",
+     "ref_column": "id"
+    }
+   ],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "analysisStatus",
+     "type": "character varying(255)",
+     "allowed": [
+      "PENDING",
+      "PASSED",
+      "REJECTED"
+     ]
+    },
+    {
+     "name": "archived_at",
+     "type": "timestamp(6) with time zone"
+    },
+    {
+     "name": "party_no",
+     "type": "integer",
+     "notnull": true
+    },
+    {
+     "name": "product_name",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "shift_date",
+     "type": "date"
+    },
+    {
+     "name": "shift_type",
+     "type": "character varying(255)",
+     "allowed": [
+      "FIRST",
+      "SECOND"
+     ]
+    },
+    {
+     "name": "status",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "act_id",
+     "type": "character varying(255)"
+    }
+   ]
+  },
+  "truck_calculation_acts": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "act_number",
+     "type": "character varying(255)"
+    },
+    {
+     "name": "total_trucks",
+     "type": "integer"
+    },
+    {
+     "name": "total_weight",
+     "type": "double precision"
+    },
+    {
+     "name": "truck_received_date",
+     "type": "date"
+    },
+    {
+     "name": "cancelled_at",
+     "type": "timestamp(6) with time zone"
+    }
+   ]
+  },
+  "uchastnik": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "character varying(255)",
+     "notnull": true
+    },
+    {
+     "name": "name",
+     "type": "character varying(255)",
+     "notnull": true
+    }
+   ]
+  },
+  "daily_excavator_work": {
+   "rows": null,
+   "comment": null,
+   "pk": [
+    "id"
+   ],
+   "fks": [
+    {
+     "column": "uchastnik_id",
+     "ref_table": "uchastnik",
+     "ref_column": "id"
+    }
+   ],
+   "checks": [],
+   "columns": [
+    {
+     "name": "id",
+     "type": "character varying(255)",
+     "notnull": true,
+     "allowed": null
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp(6) with time zone",
+     "notnull": true,
+     "allowed": null
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp(6) with time zone",
+     "notnull": true,
+     "allowed": null
+    },
+    {
+     "name": "ekskovatorWorkType",
+     "type": "character varying(255)",
+     "notnull": false,
+     "allowed": [
+      "COAL",
+      "PRIMARY_KAOLIN",
+      "SECONDARY_MULTICOLORED",
+      "SECONDARY_GRAY",
+      "ROCK_MASS"
+     ]
+    },
+    {
+     "name": "excavator_number",
+     "type": "character varying(255)",
+     "notnull": true,
+     "allowed": null
+    },
+    {
+     "name": "shift",
+     "type": "integer",
+     "notnull": true,
+     "allowed": null
+    },
+    {
+     "name": "status",
+     "type": "character varying(255)",
+     "notnull": true,
+     "allowed": null
+    },
+    {
+     "name": "work_date",
+     "type": "date",
+     "notnull": true,
+     "allowed": null
+    },
+    {
+     "name": "excavator_id",
+     "type": "character varying(255)",
+     "notnull": false,
+     "allowed": null
+    },
+    {
+     "name": "uchastnik_id",
+     "type": "character varying(255)",
+     "notnull": true,
+     "allowed": null
+    },
+    {
+     "name": "works_on_coal",
+     "type": "boolean",
+     "notnull": false,
+     "allowed": null
+    },
+    {
+     "name": "ekskovator_work_type",
+     "type": "character varying(255)",
+     "notnull": false,
+     "allowed": [
+      "COAL",
+      "PRIMARY_KAOLIN",
+      "SECONDARY_MULTICOLORED",
+      "SECONDARY_GRAY",
+      "ROCK_MASS"
+     ]
+    }
+   ]
+  }
+ }
+}

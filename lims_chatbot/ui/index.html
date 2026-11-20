@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LIMS AI — stream</title>
+<!--
+  /api/chat/stream uchun mahalliy test UI (tashqi kutubxonalarsiz).
+  Ochish: faylni brauzerda oching yoki
+      python -m http.server 5500 --directory lims_chatbot/ui   →  http://localhost:5500
+  API: uvicorn main:app --reload --port 8080  (CORS_ALLOW_ORIGINS=* bo'lishi kerak)
+-->
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #667085; --border: #e3e6ea;
+    --accent: #2563eb; --accent-text: #ffffff; --user: #2563eb; --user-text: #ffffff;
+    --warn: #b45309; --err: #b91c1c; --code: #f1f3f5;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --panel: #171a21; --text: #e6e8eb; --muted: #9aa3af; --border: #2a2f39;
+      --accent: #3b82f6; --user: #1d4ed8; --code: #10131a;
+      --warn: #fbbf24; --err: #f87171; --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  code, pre { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; }
+
+  header {
+    position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .bar { max-width: 900px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 10px; align-items: center; }
+  .bar h1 { font-size: 16px; margin: 0; font-weight: 650; white-space: nowrap; }
+  .bar .sid { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spacer { flex: 1; }
+  .btn {
+    border: 1px solid var(--border); background: var(--panel); border-radius: 8px; padding: 6px 12px;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .btn.danger { background: var(--err); color: #fff; border-color: var(--err); }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  #settings { max-width: 900px; margin: 0 auto; padding: 0 16px 12px; display: none; }
+  #settings.open { display: block; }
+  .grid { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: end; }
+  .grid label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 4px; }
+  .grid input {
+    border: 1px solid var(--border); background: var(--bg); border-radius: 8px; padding: 7px 10px; min-width: 0;
+  }
+  #health { font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 1.5em; }
+
+  main { flex: 1; overflow-y: auto; }
+  #chat { max-width: 900px; margin: 0 auto; padding: 20px 16px 8px; display: flex; flex-direction: column; gap: 16px; }
+  .empty { text-align: center; color: var(--muted); margin-top: 8vh; }
+  .empty h2 { color: var(--text); font-size: 20px; margin: 0 0 6px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+  .examples button {
+    border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 6px 14px; font-size: 14px;
+  }
+
+  .msg.user {
+    align-self: flex-end; max-width: 80%; background: var(--user); color: var(--user-text);
+    padding: 9px 14px; border-radius: 14px 14px 4px 14px; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .msg.bot {
+    align-self: stretch; background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px 16px; box-shadow: var(--shadow); min-width: 0;
+  }
+  .head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .timer { font-variant-numeric: tabular-nums; margin-left: auto; }
+
+  .answer { margin-top: 6px; overflow-wrap: anywhere; }
+  .answer p { margin: 0 0 6px; }
+  .answer ul, .answer ol { margin: 0 0 6px; padding-left: 22px; }
+  .answer code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+  .answer.error { color: var(--err); }
+  /* Matn kelayotganda oxirida miltillovchi kursor */
+  .answer.streaming > p:last-child::after,
+  .answer.streaming > :is(ul, ol):last-child > li:last-child::after {
+    content: "▍"; color: var(--accent); margin-left: 1px; animation: blink 1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Javob kelguncha — "yozmoqda" nuqtalari (ichki jarayon ko'rsatilmaydi) */
+  .typing { display: inline-flex; gap: 5px; padding: 8px 0 4px; }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--muted); opacity: .35;
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: .15s; }
+  .typing span:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce { 0%, 60%, 100% { transform: none; opacity: .35; } 30% { transform: translateY(-4px); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .typing span, .answer.streaming *::after { animation: none; } }
+
+  .warnings { margin: 8px 0 0; padding-left: 18px; color: var(--warn); font-size: 13px; }
+
+  details.box { margin-top: 10px; border: 1px solid var(--border); border-radius: 8px; }
+  details.box > summary { padding: 6px 10px; cursor: pointer; font-size: 13px; color: var(--muted); }
+  details.box pre { margin: 0; padding: 10px; background: var(--code); overflow-x: auto; border-top: 1px solid var(--border); }
+  .table-wrap { overflow: auto; max-height: 420px; border-top: 1px solid var(--border); }
+  table { border-collapse: collapse; font-size: 13px; width: max-content; min-width: 100%; }
+  th, td { padding: 5px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { position: sticky; top: 0; background: var(--panel); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.null { color: var(--muted); }
+  .note { font-size: 12px; color: var(--muted); padding: 6px 10px; }
+
+  footer { background: var(--bg); }
+  .composer { max-width: 900px; margin: 0 auto; padding: 8px 16px 16px; display: flex; gap: 8px; align-items: flex-end; }
+  .composer textarea {
+    flex: 1; resize: none; border: 1px solid var(--border); background: var(--panel); border-radius: 12px;
+    padding: 10px 14px; max-height: 180px; min-height: 44px; line-height: 1.4;
+  }
+  .composer textarea:focus, .grid input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .composer .btn { height: 44px; border-radius: 12px; padding: 0 18px; }
+
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: 1fr 1fr; }
+    .grid label:first-child { grid-column: 1 / 3; }
+    .msg.user { max-width: 92%; }
+    .bar h1 { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>LIMS AI · stream</h1>
+    <span class="sid" id="sid"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="newChat" title="Yangi session_id bilan boshlash">Yangi suhbat</button>
+    <button class="btn" id="toggleSettings">Sozlamalar</button>
+  </div>
+  <div id="settings">
+    <div class="grid">
+      <label>API manzili <input id="apiUrl" placeholder="http://localhost:8080" autocomplete="off"></label>
+      <label>Login <input id="login" autocomplete="username"></label>
+      <label>Parol <input id="password" type="password" autocomplete="current-password"></label>
+      <button class="btn" id="checkHealth">Tekshirish</button>
+    </div>
+    <div id="health"></div>
+  </div>
+</header>
+
+<main id="scroller">
+  <div id="chat">
+    <div class="empty" id="empty">
+      <h2>LIMS bazasi bo'yicha savol bering</h2>
+      <div>Javob yozilishi bilan so'zma-so'z chiqadi.</div>
+      <div class="examples">
+        <button>Laboratoriyalar soni nechta?</button>
+        <button>Shu oy sexlar bo'yicha tahlillar va chetlanishlar soni</button>
+        <button>Kalibrlash muddati o'tgan asboblar ro'yxati</button>
+        <button>Salom, nimalarga javob bera olasan?</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <form class="composer" id="composer">
+    <textarea id="question" rows="1" placeholder="Savolingizni yozing…" title="Enter — yuborish, Shift+Enter — yangi qator" maxlength="3000"></textarea>
+    <button class="btn primary" id="send" type="submit">Yuborish</button>
+  </form>
+</footer>
+
+<script>
+"use strict";
+
+// ---------------- saqlash (xato bo'lsa jim o'tadi) ----------------
+const store = {
+  get(area, key, fallback = "") { try { return window[area].getItem(key) ?? fallback; } catch { return fallback; } },
+  set(area, key, value) { try { value ? window[area].setItem(key, value) : window[area].removeItem(key); } catch {} },
+};
+const $ = (sel) => document.querySelector(sel);
+const el = (tag, cls, text) => {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text != null) node.textContent = text;
+  return node;
+};
+
+const ui = {
+  apiUrl: $("#apiUrl"), login: $("#login"), password: $("#password"), health: $("#health"),
+  settings: $("#settings"), chat: $("#chat"), empty: $("#empty"), scroller: $("#scroller"),
+  question: $("#question"), send: $("#send"), sid: $("#sid"),
+};
+
+ui.apiUrl.value = store.get("localStorage", "lims.apiUrl", "http://localhost:8080");
+ui.login.value = store.get("localStorage", "lims.login", "lims_admin");
+ui.password.value = store.get("sessionStorage", "lims.password");  // faqat shu tab yopilguncha
+let sessionId = store.get("localStorage", "lims.session");
+let controller = null;
+showSession();
+if (!ui.password.value) ui.settings.classList.add("open");
+
+for (const [input, area, key] of [[ui.apiUrl, "localStorage", "lims.apiUrl"],
+                                  [ui.login, "localStorage", "lims.login"],
+                                  [ui.password, "sessionStorage", "lims.password"]]) {
+  input.addEventListener("change", () => store.set(area, key, input.value.trim()));
+}
+
+function apiBase() { return ui.apiUrl.value.trim().replace(/\/+$/, "") || "http://localhost:8080"; }
+function authHeaders() {
+  const raw = `${ui.login.value.trim()}:${ui.password.value}`;
+  const bytes = new TextEncoder().encode(raw);
+  return { Authorization: "Basic " + btoa(String.fromCharCode(...bytes)) };
+}
+function showSession() { ui.sid.textContent = sessionId ? `session: ${sessionId}` : "yangi suhbat"; }
+function setSession(id) { sessionId = id; store.set("localStorage", "lims.session", id); showSession(); }
+function scrollDown() { ui.scroller.scrollTop = ui.scroller.scrollHeight; }
+function secs(ms) { return (ms / 1000).toFixed(1) + " s"; }
+
+// ---------------- SSE o'quvchi (fetch + ReadableStream; EventSource POST/login yubora olmaydi) ----------------
+async function* readSSE(body) {
+  const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    buf += value.replace(/\r\n/g, "\n");
+    let cut;
+    while ((cut = buf.indexOf("\n\n")) >= 0) {
+      const block = buf.slice(0, cut);
+      buf = buf.slice(cut + 2);
+      let event = "message", data = "";
+      for (const line of block.split("\n")) {
+        if (line.startsWith(":")) continue;            // `: ping` — ulanishni tirik ushlash
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trimStart();
+      }
+      if (data) yield { event, data: JSON.parse(data) };
+    }
+  }
+}
+
+async function httpError(res) {
+  if (res.status === 401) return "Login yoki parol noto'g'ri (Sozlamalar).";
+  try {
+    const body = await res.json();
+    const detail = Array.isArray(body.detail) ? body.detail.map((d) => d.msg).join("; ") : body.detail;
+    return `Server xatosi ${res.status}: ${detail || res.statusText}`;
+  } catch { return `Server xatosi ${res.status}`; }
+}
+
+// ---------------- matn (xavfsiz mini-markdown: **qalin**, `kod`, ro'yxatlar) ----------------
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function inline(s) {
+  return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+function renderMarkdown(text) {
+  let html = "", list = null;
+  const close = () => { if (list) { html += `</${list}>`; list = null; } };
+  for (const line of escapeHtml(text || "").split("\n")) {
+    const ul = line.match(/^\s*[-*•]\s+(.*)$/), ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    const kind = ul ? "ul" : ol ? "ol" : null;
+    if (kind) {
+      if (list !== kind) { close(); html += `<${kind}>`; list = kind; }
+      html += `<li>${inline((ul || ol)[1])}</li>`;
+    } else {
+      close();
+      if (line.trim()) html += `<p>${inline(line)}</p>`;
+    }
+  }
+  close();
+  return html;
+}
+
+// ---------------- bot javobi: "yozmoqda…" → matn oqimi → yakuniy javob ----------------
+function botMessage() {
+  const root = el("div", "msg bot");
+  const head = el("div", "head");
+  head.append(el("span", null, "LIMS AI"));
+  const timer = el("span", "timer");
+  head.append(timer);
+  const answer = el("div", "answer");
+  const typing = el("div", "typing");
+  typing.append(el("span"), el("span"), el("span"));
+  answer.append(typing);
+  root.append(head, answer);
+  ui.chat.append(root);
+
+  const t0 = performance.now();
+  let text = "", frame = 0;
+
+  // Bo'laklar bir kadrga yig'iladi: har token uchun emas, ekran yangilanishida bir marta chiziladi.
+  function paint() {
+    frame = 0;
+    answer.classList.add("streaming");
+    answer.innerHTML = renderMarkdown(text);
+    scrollDown();
+  }
+  function finish(cls) {
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+    api.done = true;
+    answer.className = cls;
+    timer.textContent = secs(performance.now() - t0);
+  }
+
+  const api = {
+    done: false,
+    delta(chunk) {
+      text += chunk;
+      if (!frame) frame = requestAnimationFrame(paint);
+    },
+    result(r) {
+      finish("answer" + (r.error ? " error" : ""));
+      // Yakuniy matn — server tekshirgan javob (oqimdagi qism shu bilan almashtiriladi).
+      answer.innerHTML = renderMarkdown(r.answer || "(bo'sh javob)");
+      if (r.warnings?.length) {
+        const ul = el("ul", "warnings");
+        for (const w of r.warnings) ul.append(el("li", null, w));
+        root.append(ul);
+      }
+      if (r.columns?.length && r.rows?.length) root.append(resultTable(r));
+      scrollDown();
+    },
+    error(message) {
+      finish("answer error");
+      answer.textContent = "⚠️ " + message;
+      scrollDown();
+    },
+    stopped() {
+      finish("answer");
+      answer.innerHTML = text ? renderMarkdown(text) : "";
+      answer.append(el("div", "note", "⏹ To'xtatildi."));
+    },
+  };
+  return api;
+}
+
+function resultTable(r) {
+  const MAX = 200;
+  const box = el("details", "box");
+  box.open = false;  // ro'yxat javob matnida bor — jadval yopiq turadi (bosilsa ochiladi)
+  box.append(el("summary", null, `Natija jadvali (${r.rows.length} satr)`));
+  const wrap = el("div", "table-wrap");
+  const table = el("table");
+  const thead = el("thead"), tr = el("tr");
+  for (const c of r.columns) tr.append(el("th", null, c));
+  thead.append(tr);
+  const tbody = el("tbody");
+  table.append(thead, tbody);
+  const rows = r.rows.slice(0, MAX);
+  // Ustundagi barcha qiymatlar son bo'lsa — butun ustun (bo'sh katakchalar ham) o'ngga tekislanadi.
+  const numeric = new Set(r.columns.filter((c) =>
+    rows.some((row) => row[c] != null) && rows.every((row) => row[c] == null || typeof row[c] === "number")));
+  for (const row of rows) {
+    const line = el("tr");
+    for (const c of r.columns) {
+      const v = row[c];
+      const cls = [numeric.has(c) ? "num" : "", v == null ? "null" : ""].join(" ").trim();
+      line.append(el("td", cls, v == null ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v)));
+    }
+    tbody.append(line);
+  }
+  wrap.append(table);
+  box.append(wrap);
+  if (r.rows.length > MAX) box.append(el("div", "note", `Birinchi ${MAX} ta satr ko'rsatildi.`));
+  return box;
+}
+
+// ---------------- yuborish ----------------
+async function ask(question) {
+  ui.empty?.remove();
+  ui.chat.append(el("div", "msg user", question));
+  const bot = botMessage();
+  scrollDown();
+
+  controller = new AbortController();
+  setBusy(true);
+  try {
+    const res = await fetch(apiBase() + "/api/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(sessionId ? { question, session_id: sessionId } : { question }),
+      signal: controller.signal,
+    });
+    if (!res.ok) { bot.error(await httpError(res)); return; }
+    for await (const { event, data } of readSSE(res.body)) {
+      if (event === "start") setSession(data.session_id);
+      else if (event === "delta") bot.delta(data.text);
+      else if (event === "result") bot.result(data);
+      else if (event === "error") bot.error(data.detail);
+    }
+    if (!bot.done) bot.error("Oqim kutilmaganda uzildi.");
+  } catch (err) {
+    if (err.name === "AbortError") bot.stopped();
+    else bot.error(`Serverga ulanib bo'lmadi (${err.message}). API manzili va server ishlayotganini tekshiring.`);
+  } finally {
+    controller = null;
+    setBusy(false);
+  }
+}
+
+function setBusy(busy) {
+  ui.send.textContent = busy ? "To'xtatish" : "Yuborish";
+  ui.send.classList.toggle("primary", !busy);
+  ui.send.classList.toggle("danger", busy);
+  if (!busy) ui.question.focus();
+}
+
+$("#composer").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (controller) { controller.abort(); return; }   // to'xtatish — server so'rovni bekor qiladi
+  const q = ui.question.value.trim();
+  if (!q) return;
+  ui.question.value = "";
+  autoGrow();
+  ask(q);
+});
+ui.question.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("#composer").requestSubmit(); }
+});
+function autoGrow() { ui.question.style.height = "auto"; ui.question.style.height = ui.question.scrollHeight + "px"; }
+ui.question.addEventListener("input", autoGrow);
+
+document.querySelectorAll(".examples button").forEach((b) =>
+  b.addEventListener("click", () => { if (!controller) ask(b.textContent); }));
+
+$("#toggleSettings").addEventListener("click", () => ui.settings.classList.toggle("open"));
+$("#newChat").addEventListener("click", () => {
+  if (controller) controller.abort();
+  setSession("");
+  ui.chat.replaceChildren(ui.empty || "");
+  showSession();
+});
+
+$("#checkHealth").addEventListener("click", async () => {
+  ui.health.textContent = "Tekshirilmoqda…";
+  try {
+    const res = await fetch(apiBase() + "/healthz", { headers: authHeaders() });
+    if (!res.ok) { ui.health.textContent = await httpError(res); return; }
+    const h = await res.json();
+    const mark = (ok) => (ok ? "✓" : "✗");
+    ui.health.textContent =
+      `LLM: ${h.llm_model} · LIMS baza ${mark(h.db_connected)} · schema.json ${mark(h.schema_file_present)}` +
+      ` · xotira (${h.memory_backend}) ${mark(h.memory_ok)}`;
+  } catch (err) {
+    ui.health.textContent = `Ulanib bo'lmadi: ${err.message}`;
+  }
+});
+</script>
+</body>
+</html>
